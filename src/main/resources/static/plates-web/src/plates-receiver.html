@@ -1,0 +1,257 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../bower_components/app-route/app-location.html">
+<link rel="import" href="../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid-sorter.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid-dynamic-columns-behavior.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid-column-group.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid-filter.html">
+<link rel="import" href="../bower_components/vaadin-grid/vaadin-grid-selection-column.html">
+<link rel="import" href="shared-styles.html">
+<script src="https://public.chirp.io/wasm/latest/chirp-connect.js"></script>
+<dom-module id="plates-receiver">
+    <template>
+        <style include="shared-styles">
+        :host {
+            display: block;
+        }
+
+        paper-input {
+            max-width: 400px;
+
+        --paper-input-container: {
+             padding: 0px;
+         }
+
+        --paper-input-container-input: {
+             background-color: #bebebe1f;
+             font-size: inherit;
+         }
+
+        }
+
+        paper-button.green {
+            background-color: #06ed99;
+            text-transform: none;
+        }
+
+        paper-button.green:hover {
+            background-color: #6bedc4;
+        }
+
+        paper-toast {
+            margin-left: calc(50vw - 150px);
+        }
+
+        vaadin-grid {
+            /*--primary-color: red;*/
+            --vaadin-grid-row-height: 20px;
+            --vaadin-grid-header-row-height: 44px;
+            --vaadin-grid-footer-row-height: 44px;
+
+            --vaadin-grid-body-cell: {
+                padding: 5px;
+                border-bottom: 1px solid white;
+                border-top: 1px solid white;
+            }
+
+            --vaadin-grid-body-row-odd-cell: {
+                background-color: #E3E9E7;
+            }
+
+            --vaadin-grid-body-row-selected-cell: {
+                border-bottom: 2px solid blue;
+                border-top: 1px solid blue;
+            }
+        }
+
+        paper-progress {
+            display: block;
+            width: 100%;
+        }
+
+        paper-progress.blue {
+            --paper-progress-active-color: var(--paper-light-blue-500);
+            --paper-progress-secondary-color: var(--paper-light-blue-100);
+            --paper-progress-indeterminate-cycle-duration: 5s;
+            --paper-progress-container-color: "transparant";
+        }
+
+        .receiverDetails{
+            display: grid;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            width: auto;
+        }
+        .receiverButton{
+            display: grid;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            width: auto;
+        }
+
+        </style>
+        <iron-ajax id="platesViewAjax" method="GET" content-type="application/json" url="http://localhost:8080/platesOrder/readUserData" handle-as="json" last-response="{{users}}" debounce-duration="300" on-error="_handleErrorMsg" last-error="{{errorMsg}}" loading="{{_loading}}"></iron-ajax>
+
+        <iron-ajax id="platesSaveAjax" method="POST" content-type="application/json" url="http://localhost:8080/platesOrder/saveUserData" handle-as="json" debounce-duration="300" on-error="_handleErrorMsg" last-error="{{errorMsg}}" body="{}"></iron-ajax>
+
+        <iron-ajax id="platesDeleteAjax" method="POST" content-type="application/json" url="http://localhost:8080/platesOrder/deleteUserData" handle-as="json" debounce-duration="300" on-error="_handleErrorMsg" last-error="{{errorMsg}}" body="{}"></iron-ajax>
+
+        <paper-toast id="toast" duration="5000"></paper-toast>
+        <div class="receiverDetails">
+            <paper-input float-label label="Plates State:" value={{currentState}}></paper-input>
+            <paper-input float-label label="Employee Id:" value={{empId}}></paper-input>
+            <paper-input float-label label="Employee Name:" value={{empName}}></paper-input>
+            <paper-input float-label label="Order Time:" value={{timeStamp}}></paper-input>
+        </div>
+        <div class="receiverButton">
+            <paper-button raised class="green" on-tap="_deleteRow"
+                          disabled$="[[_computeNotSelectedUserRow(selectedUserRow)]]">Delete</paper-button>
+        </div>
+        <div>
+            <vaadin-grid id="gridUserResult" style="font-size:11px;" multi-sort="true" items="[[users]]" active-item="{{selectedUserRow}}">
+                <vaadin-grid-selection-column frozen> </vaadin-grid-selection-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="employeeId">Employee ID</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.employeeId]]</template>
+                </vaadin-grid-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="employeeName">Employee Name</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.employeeName]]</template>
+                </vaadin-grid-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="ordersBreakFast">Break Fast</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.ordersBreakFast]]</template>
+                </vaadin-grid-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="ordersLunch">Lunch</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.ordersLunch]]</template>
+                </vaadin-grid-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="ordersDinner">Dinner</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.ordersDinner]]</template>
+                </vaadin-grid-column>
+                <vaadin-grid-column>
+                    <template class="header">
+                        <vaadin-grid-sorter path="lastUsedDateAndTime">Last used date & time</vaadin-grid-sorter>
+                    </template>
+                    <template>[[item.lastUsedDateAndTime]]</template>
+                </vaadin-grid-column>
+            </vaadin-grid>
+        </div>
+        <div style="height:4px;display: block">
+            <template is="dom-if" if="{{_loading}}">
+                <paper-progress indeterminate class="blue"></paper-progress>
+            </template>
+        </div>
+    </template>
+    <script>
+    Polymer({
+        is: 'plates-receiver',
+
+        properties: {
+            empId: String,
+            empName: String,
+            currentState: String,
+            timeStamp: Date,
+            selectedUserRow: {
+                observer: '_selectedUserRowChanged'
+            }
+        },
+
+        attached: function() {
+
+            this.$.platesViewAjax.generateRequest();
+            this.async(function() {
+                const sdk = ChirpConnectSDK.Chirp({
+                    key: 'DBBCBa33EeFce01F2559E1bE1',
+                    onStateChanged: (previous, current) => {
+                        this.currentState = current;
+                    },
+                    onReceived: data => {
+                        var count = data.length;
+                        var dataStr = "";
+
+                        for (var index = 0; index < count; index += 1) {
+                            dataStr += String.fromCharCode(data[index]);
+                        }
+
+                        if (new RegExp(',', 'i').test(dataStr)) {
+                            var recData = dataStr.split(",");
+                            this.empId = recData[0];
+                            this.empName = recData[1];
+                            var date = new Date();
+                            this.timeStamp = date.toLocaleDateString() + " " + date.toLocaleTimeString();
+                            //this.users.push({'id':this.empId,'name':this.empName, 'date': this.timeStamp});
+
+                            var requestBody = {};
+                            requestBody.employeeId = this.empId;
+                            requestBody.employeeName = this.empName;
+                            this.$.platesSaveAjax.body = JSON.stringify(requestBody);
+                            this.$.platesSaveAjax.generateRequest();
+                            this.$.platesViewAjax.generateRequest();
+                        }
+                    }
+                });
+            });
+        },
+        _selectedUserRowChanged: function(item) {
+            this.$.gridUserResult.selectedItems = item ? [item] : [];
+        },
+        _computeNotSelectedUserRow: function(selectedUserRow) {
+            return !selectedUserRow;
+        },
+        _deleteRow: function(){
+            if(this.selectedUserRow){
+                var requestBody = {};
+                requestBody.id = this.selectedUserRow.employeeId;
+                this.$.platesDeleteAjax.body = JSON.stringify(requestBody);
+                this.$.platesDeleteAjax.generateRequest();
+                this.$.platesViewAjax.generateRequest();
+            }else{
+                this.$.toast.text = "Invalid user id.";
+                this.$.toast.open();
+            }
+        },
+        _handleErrorMsg: function(e) {
+            var errorMessage;
+
+            if (e.detail.description) {
+                errorMessage = e.detail.description;
+            } else if (e.detail.error && e.detail.error.message) {
+                errorMessage = e.detail.error.message;
+            } else if (e.detail.request && e.detail.request.status == 0) {
+                errorMessage = 'Service temporarily down: ' + e.detail.request.url + " - please try again";
+            } else {
+                errorMessage = 'Request failed: ' + e.detail.error;
+            }
+            this.$.toast.text = errorMessage;
+            this.$.toast.open();
+            this._loading = false;
+        }
+    });
+    </script>
+</dom-module>

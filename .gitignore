@@ -1,0 +1,14 @@
+
+\.idea/
+
+\.settings/
+
+target/
+
+\.classpath
+
+\.factorypath
+
+\.project
+
+src/main/resources/static/plates-web/bower_components/

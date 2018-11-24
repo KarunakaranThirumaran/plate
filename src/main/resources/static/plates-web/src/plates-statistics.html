@@ -1,0 +1,473 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../bower_components/paper-toast/paper-toast.html">
+
+<link rel="import" href="../bower_components/app-datepicker/app-datepicker-dialog.html">
+
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../bower_components/highcharts-chart/highcharts-chart.html">
+<link rel="import" href="shared-styles.html">
+
+<dom-module id="plates-statistics">
+    <template>
+        <style include="shared-styles">
+            :host {
+                display: block;
+            }
+
+            paper-input.forDate {
+            width: auto;
+
+            --paper-input-container: {
+                padding: 0px;
+            }
+
+            --paper-input-container-input: {
+                background-color: #bebebe1f;
+                font-size: inherit;
+            }
+
+            }
+
+            paper-progress {
+                display: block;
+                width: 100%;
+            }
+
+            paper-progress.blue {
+                --paper-progress-active-color: var(--paper-light-blue-500);
+                --paper-progress-secondary-color: var(--paper-light-blue-100);
+                --paper-progress-indeterminate-cycle-duration: 5s;
+                --paper-progress-container-color: "transparant";
+            }
+
+            paper-toast {
+                margin-left: calc(50vw - 150px);
+            }
+
+            paper-button.green {
+                background-color: #06ed99;
+                text-transform: none;
+                margin-top: 5px;
+                margin-bottom: 5px;
+                display: grid;
+            }
+
+            paper-button.green:hover {
+                background-color: #6bedc4;
+            }
+
+            .mealCountLabel {
+                display: table-cell;
+                background-color: #06ed99;
+            }
+
+            .mealCountValue {
+                display: table-cell;
+                background-color: #FFCDD2;
+            }
+
+            .mealCount{
+                display: inline-grid;
+                margin-left: 10px;
+                margin-top: 5px;
+                margin-bottom: 5px;
+            }
+
+            .statisticsButton{
+                margin-top: 5px;
+                margin-bottom: 5px;
+                width: auto;
+            }
+
+            .reportButtons{
+                display: grid;
+            }
+
+
+        </style>
+        <iron-ajax id="platesViewAjax"
+                   method="GET"
+                   content-type="application/json"
+                   url="http://localhost:8080/platesOrder/readUserData"
+                   handle-as="json"
+                   last-response="{{users}}"
+                   debounce-duration="300"
+                   on-error="_handleErrorMsg"
+                   last-error="{{errorMsg}}"
+                   loading="{{_loading}}">
+        </iron-ajax>
+        <iron-ajax id="platesDaysAjax"
+                   method="GET"
+                   content-type="application/json"
+                   url="http://localhost:8080/platesOrder/dateRangeReport"
+                   handle-as="json"
+                   last-response="{{orders}}"
+                   debounce-duration="300"
+                   on-error="_handleErrorMsg"
+                   last-error="{{errorMsg}}"
+                   loading="{{_loading}}">
+        </iron-ajax>
+        <iron-ajax id="platesDayCountAjax"
+                   method="GET"
+                   content-type="application/json"
+                   url="http://localhost:8080/platesOrder/showDayReport"
+                   handle-as="json"
+                   last-response="{{dayDetails}}"
+                   debounce-duration="300"
+                   on-error="_handleErrorMsg"
+                   last-error="{{errorMsg}}"
+                   loading="{{_loading}}">
+        </iron-ajax>
+        <iron-ajax id="platesWeekCountAjax"
+                   method="GET"
+                   content-type="application/json"
+                   url="http://localhost:8080/platesOrder/showWeekReport"
+                   handle-as="json"
+                   last-response="{{weekDetails}}"
+                   debounce-duration="300"
+                   on-error="_handleErrorMsg"
+                   last-error="{{errorMsg}}"
+                   loading="{{_loading}}">
+        </iron-ajax>
+        <iron-ajax id="platesMonthCountAjax"
+                   method="GET"
+                   content-type="application/json"
+                   url="http://localhost:8080/platesOrder/showMonthReport"
+                   handle-as="json"
+                   last-response="{{monthDetails}}"
+                   debounce-duration="300"
+                   on-error="_handleErrorMsg"
+                   last-error="{{errorMsg}}"
+                   loading="{{_loading}}">
+        </iron-ajax>
+
+        <div>
+            <paper-toast id="toast" duration="5000"></paper-toast>
+        </div>
+
+        <div class="reportButtons">
+            <paper-button class="green" raised on-tap="_showDailyReport">Day</paper-button>
+            <paper-button class="green" raised on-tap="_showWeeklyReport">Week</paper-button>
+            <paper-button class="green" raised on-tap="_showMonthlyReport">Month</paper-button>
+        </div>
+        <div class="mealCount">
+            <iron-label class="mealCountLabel">Break-fast</iron-label>
+            <iron-label class="mealCountValue">{{breakFastCount}}</iron-label>
+        </div>
+        <div class="mealCount">
+            <iron-label class="mealCountLabel">Lunch</iron-label>
+            <iron-label class="mealCountValue">{{lunchCount}}</iron-label>
+        </div>
+        <div class="mealCount">
+            <iron-label class="mealCountLabel">Mid-Day-Meal</iron-label>
+            <iron-label class="mealCountValue">{{midDayMealCount}}</iron-label>
+        </div>
+        <div class="mealCount">
+            <iron-label class="mealCountLabel">OT-Snacks</iron-label>
+            <iron-label class="mealCountValue">{{otSnacksCount}}</iron-label>
+        </div>
+        <div class="mealCount">
+            <iron-label class="mealCountLabel">Dinner</iron-label>
+            <iron-label class="mealCountValue">{{dinnerCount}}</iron-label>
+        </div>
+
+        <div>
+            <paper-input
+                    id="inputFromDate"
+                    type="String"
+                    label="From:"
+                    value="{{fromDate}}">
+                <paper-icon-button slot="suffix" on-tap="_openFromDatePicker" icon="date-range" alt="select"
+                                   title="select"></paper-icon-button>
+                <paper-icon-button slot="suffix" on-tap="clearFromInput" icon="clear" alt="clear"
+                                   title="clear"></paper-icon-button>
+            </paper-input>
+
+            <paper-input
+                    id="inputToDate"
+                    type="String"
+                    label="To:"
+                    value="{{toDate}}">
+                <paper-icon-button slot="suffix" on-tap="_openToDatePicker" icon="date-range" alt="select"
+                                   title="select"></paper-icon-button>
+                <paper-icon-button slot="suffix" on-tap="clearToInput" icon="clear" alt="clear"
+                                   title="clear"></paper-icon-button>
+            </paper-input>
+        </div>
+
+        <div class="statisticsButton">
+            <paper-button class="green" raised on-tap="_showReport">Show Report</paper-button>
+        </div>
+
+        <div>
+            <highcharts-chart id="userStatChart" type="column"
+                              title='Order Details'
+                              x-label="{{xLabel}}"
+                              y-label="{{yLabel}}"
+                              x-axis=[[chartCategoryNameObj]]
+                              data=[[chartValueDataArr]]>
+            </highcharts-chart>
+        </div>
+        <div style="height:5px;display: block; position:absolute;">
+            <template is="dom-if" if="{{_loading}}">
+                <paper-progress indeterminate class="blue"></paper-progress>
+            </template>
+        </div>
+
+        <app-datepicker-dialog id="fromDatepicker"
+                               no-animation
+                               date="{{fromDate}}"
+                               input-date="{{fromDate}}"
+                               first-day-of-week="1"
+                               disable-days="[]"
+                               with-backdrop=""
+                               role="dialog"
+                               tabindex="-1"
+                               aria-hidden="true"
+                               style="outline: none; display: none;"
+                               view="vertical"
+                               on-iron-overlay-opened="_patchOverlay"
+                               format="[[format]]"
+                               locale="[[locale]]"
+                               auto-update-date
+                               auto-close-dialog
+                               show-week-numbers>
+        </app-datepicker-dialog>
+
+        <app-datepicker-dialog id="toDatepicker"
+                               no-animation
+                               date="{{toDate}}"
+                               input-date="{{toDate}}"
+                               first-day-of-week="1"
+                               disable-days="[]"
+                               with-backdrop=""
+                               role="dialog"
+                               tabindex="-1"
+                               aria-hidden="true"
+                               style="outline: none; display: none;"
+                               view="vertical"
+                               on-iron-overlay-opened="_patchOverlay"
+                               format="[[format]]"
+                               locale="[[locale]]"
+                               auto-update-date
+                               auto-close-dialog
+                               show-week-numbers>
+        </app-datepicker-dialog>
+    </template>
+    <script>
+        Polymer({
+            is: 'plates-statistics',
+
+            properties: {
+                format: {
+                    type: String,
+                    value: 'yyyy-mm-dd'
+                },
+                locale: {
+                    type: String,
+                    value: function () {
+                        if (window.Intl) {
+                            return new window.Intl.DateTimeFormat().resolvedOptions().locale;
+                        }
+                        return 'en';
+                    }
+                },
+                fromDate: {
+                    type: String,
+                    value: "",
+                    notify: true
+                },
+                toDate: {
+                    type: String,
+                    value: "",
+                    notify: true
+                },
+                xLabel: {
+                    type: String,
+                    value: "",
+                    notify: true
+                },
+                yLabel: {
+                    type: String,
+                    value: "",
+                    notify: true
+                },
+                chartCategoryNameObj: {},
+                chartValueDataArr: [],
+                breakFastCount: {
+                    type: Number,
+                    value: 0,
+                    notify: true
+                },
+                lunchCount: {
+                    type: Number,
+                    value: 0,
+                    notify: true
+                },
+                midDayMealCount: {
+                    type: Number,
+                    value: 0,
+                    notify: true
+                },
+                otSnacksCount: {
+                    type: Number,
+                    value: 0,
+                    notify: true
+                },
+                dinnerCount: {
+                    type: Number,
+                    value: 0,
+                    notify: true
+                }
+            },
+            observers: [
+                '_observeUsers(users)',
+                '_observeOrders(orders)',
+                '_observeDayCounts(dayCounts)',
+                '_observeWeekCounts(weekCounts)',
+                '_observeMonthCounts(monthDetails)'
+            ],
+            attached: function () {
+                this.clearFromInput();
+                this.clearToInput();
+                this.$.platesViewAjax.generateRequest();
+            },
+            _observeUsers: function (users) {
+                if(!users)return;
+
+                var userNameArr = [];
+                var dataArr = [];
+                this.chartCategoryNameObj = {categories: userNameArr};
+
+                users.forEach(function (item) {
+                    userNameArr.push(item.employeeName);
+                    dataArr.push(item.ordersBreakFast);
+                });
+
+                this.xLabel = "USERS";
+                this.yLabel = "ORDERS";
+                this.chartValueDataArr = dataArr;
+            },
+            _observeOrders: function (orders) {
+                if(!orders)return;
+
+                var orderNameArr = [];
+                var dataArr = [];
+                this.chartCategoryNameObj = {categories: orderNameArr};
+
+                orderNameArr.push("Break-Fast");
+                orderNameArr.push("Lunch");
+                orderNameArr.push("Mid-Day-Meal");
+                orderNameArr.push("OT-Snacks");
+                orderNameArr.push("Dinner");
+
+                dataArr.push(orders.breakFastCount);
+                dataArr.push(orders.lunchCount);
+                dataArr.push(orders.dinnerCount);
+
+                this.xLabel = "MEALS";
+                this.yLabel = "ORDERS";
+                this.chartValueDataArr = dataArr;
+            },
+            _observeDayCounts: function(dayDetails){
+                if(dayDetails){
+                    var meals = dayDetails.dayDetails;
+                    this.breakFastCount = meals.BreakFast;
+                    this.lunchCount = meals.Lunch;
+                    this.midDayMealCount = meals.MidDayMeal;
+                    this.otSnacksCount = meals.OtSnacks;
+                    this.dinnerCount = meals.Dinner;
+                }
+            },
+            _observeWeekCounts: function(weekDetails){
+                if(weekDetails){
+                    var meals = weekDetails.weekDetails;
+                    this.breakFastCount = meals.BreakFast;
+                    this.lunchCount = meals.Lunch;
+                    this.midDayMealCount = meals.MidDayMeal;
+                    this.otSnacksCount = meals.OtSnacks;
+                    this.dinnerCount = meals.Dinner;
+                }
+            },
+            _observeMonthCounts: function(monthDetails){
+                if(monthDetails){
+                    var meals = monthDetails.monthDetails;
+                    this.breakFastCount = meals.BreakFast;
+                    this.lunchCount = meals.Lunch;
+                    this.midDayMealCount = meals.MidDayMeal;
+                    this.otSnacksCount = meals.OtSnacks;
+                    this.dinnerCount = meals.Dinner;
+                }
+            },
+            clearFromInput: function () {
+                this.$.fromDatepicker.$.datePicker.__data__._selectedYear = "";
+                this.$.fromDatepicker.$.datePicker.__data__._selectedMonth = "";
+                this.$.fromDatepicker.$.datePicker.__data__._selectedDate = "";
+                this.$.fromDatepicker.inputDate = "";
+                this.$.fromDatepicker._readOnlyDate = "";
+            },
+            clearToInput: function () {
+                this.$.toDatepicker.$.datePicker.__data__._selectedYear = "";
+                this.$.toDatepicker.$.datePicker.__data__._selectedMonth = "";
+                this.$.toDatepicker.$.datePicker.__data__._selectedDate = "";
+                this.$.toDatepicker.inputDate = "";
+                this.$.toDatepicker._readOnlyDate = "";
+            },
+            _showDailyReport: function(){
+                this.$.platesDayCountAjax.generateRequest();
+            },
+            _showWeeklyReport: function(){
+                this.$.platesWeekCountAjax.generateRequest();
+            },
+            _showMonthlyReport: function(){
+                this.$.platesMonthCountAjax.generateRequest();
+            },
+            _openFromDatePicker: function () {
+                this.$.fromDatepicker.open();
+            },
+            _openToDatePicker: function () {
+                this.$.toDatepicker.open();
+            },
+            _patchOverlay: function (e) {
+                if (e.target.withBackdrop) {
+                    e.target.parentNode.insertBefore(e.target.backdropElement, e.target);
+                }
+            },
+            _showReport: function () {
+                this.$.platesDaysAjax.params = {"fromDate": this.fromDate, "toDate": this.toDate}
+                this.$.platesDaysAjax.generateRequest();
+            },
+            _handleErrorMsg: function (e) {
+                var errorMessage;
+
+                if (e.detail.description) {
+                    errorMessage = e.detail.description;
+                } else if (e.detail.error && e.detail.error.message) {
+                    errorMessage = e.detail.error.message;
+                } else if (e.detail.request && e.detail.request.status == 0) {
+                    errorMessage = 'Service temporarily down:  - Please try again later';
+                } else {
+                    errorMessage = 'Request failed: ' + e.detail.error;
+                }
+                this.$.toast.text = errorMessage;
+                this.$.toast.open();
+                this._loading = false;
+            }
+        });
+    </script>
+</dom-module>

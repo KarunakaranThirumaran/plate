@@ -1,0 +1,116 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../bower_components/app-route/app-location.html">
+<link rel="import" href="shared-styles.html">
+
+<script src="https://public.chirp.io/wasm/latest/chirp-connect.js"></script>
+
+<dom-module id="plates-sender">
+  <template>
+    <style include="shared-styles">
+      :host {
+        display: block;
+      }
+
+      paper-input {
+        width: auto;
+
+      --paper-input-container: {
+         padding: 0px;
+       }
+
+      --paper-input-container-input: {
+         background-color: #bebebe1f;
+         font-size: inherit;
+       }
+
+      }
+
+      paper-button.green {
+        background-color: #06ed99;
+        text-transform: none;
+      }
+
+      paper-button.green:hover {
+        background-color: #6bedc4;
+      }
+
+      paper-toast {
+        margin-left: calc(50vw - 150px);
+      }
+
+      .senderDetails{
+        display: grid;
+        margin-top: 5px;
+        margin-bottom: 5px;
+        width: auto;
+      }
+
+      .senderButton{
+        display: grid;
+        margin-top: 5px;
+        margin-bottom: 5px;
+        width: auto;
+      }
+
+    </style>
+
+      <paper-toast id="toast" duration="5000"></paper-toast>
+      <app-location route="{{route}}"></app-location>
+      <div class="senderDetails">
+        <paper-input float-label label="Plates State:" readonly="true" value={{currentState}}></paper-input>
+        <paper-input float-label label="Employee Id:" value={{empId}}></paper-input>
+        <paper-input float-label label="Employee Name:" value={{empName}}></paper-input>
+      </div>
+    <div class="senderButton"><paper-button raised class="green" on-tap="_sendData">Send</paper-button></div>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'plates-sender',
+
+      properties:{
+        empId: String,
+        empName: String,
+        currentState: String,
+      },
+
+      ready: function(){
+        this.currentState = "Ready";
+      },
+
+      _sendData: function(){
+        if(!this.empId || !this.empName){
+          this.$.toast.text = "Check required fields.";
+          this.$.toast.open();
+          return;
+        }
+        const { Chirp } = ChirpConnectSDK;
+
+          Chirp({
+            key: 'DBBCBa33EeFce01F2559E1bE1',
+            onStateChanged: (previous, current) => {
+              this.currentState = current;
+            }
+          }).then(sdk => {
+              var data = this.empId+","+this.empName;
+              sdk.send(data);
+          }).catch(console.error)
+
+          this.set('route.path', '/plates-send-success');
+      }
+    });
+  </script>
+</dom-module>
